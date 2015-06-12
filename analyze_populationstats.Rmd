@@ -1,0 +1,204 @@
+Collect info about population of study
+========================================================
+
+```{r}
+setwd("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF")
+
+library("RSQLite")
+
+read_data <- function(subdata, ids) {
+  sqlite <- dbDriver("SQLite")
+  conn <- dbConnect(sqlite, "stage1localData.db")
+  
+  # 2) all T1W features
+  lesionsQuery <- dbGetQuery(conn, "SELECT *
+           FROM  stage1features
+           INNER JOIN lesion ON (stage1features.lesion_id = lesion.lesion_id)
+           INNER JOIN f_dynamic ON (stage1features.lesion_id = f_dynamic.lesion_id)
+           INNER JOIN f_morphology ON (stage1features.lesion_id = f_morphology.lesion_id)
+           INNER JOIN f_texture ON (stage1features.lesion_id = f_texture.lesion_id)")
+  
+  # prune entries and extract feature subsets
+  # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+  lesionfields =  names(lesionsQuery)
+  lesioninfo = lesionsQuery[c(1,2,150,151)]
+  stage1features = lesionsQuery[c(3:103,124:127)]
+  dynfeatures = lesionsQuery[c(154:187)]
+  morphofeatures = lesionsQuery[c(190:208)]
+  texfeatures = lesionsQuery[c(211:234)]
+  
+  # combine all features
+  allfeatures = cbind(lesioninfo[c(2,3)], stage1features, dynfeatures, morphofeatures, texfeatures)   
+  
+  if(subdata=="stage2"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "NC", "C") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "NC", "C") -> N$lesion_label
+    allfeatures = rbind(M,N)
+  }
+  if(subdata=="stage1"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "mass", "mass") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "nonmass", "nonmass") -> N$lesion_label
+    allfeatures = data.frame(rbind(M,N))     
+  }
+  if(subdata=="oneshot"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "NC", "C") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "NC", "C") -> N$lesion_label
+    allfeatures = data.frame(rbind(M,N)) 
+  }
+  # procees data
+  allfeatures$lesion_label <- as.factor(allfeatures$lesion_label)
+  allfeatures$peakCr_inside <- as.factor(allfeatures$peakCr_inside)
+  allfeatures$peakVr_inside <- as.factor(allfeatures$peakVr_inside)
+  allfeatures$peakCr_countor <- as.factor(allfeatures$peakCr_countor)
+  allfeatures$peakVr_countor <- as.factor(allfeatures$peakVr_countor)
+  allfeatures$k_Max_Margin_Grad <- as.factor(allfeatures$k_Max_Margin_Grad)
+  allfeatures$max_RGH_mean_k <- as.factor(allfeatures$max_RGH_mean_k)
+  allfeatures$max_RGH_var_k <- as.factor(allfeatures$max_RGH_var_k)
+  
+  # 2) all T1W features
+  lesionsQueryinfo <- dbGetQuery(conn, "SELECT *
+           FROM  lesion
+           INNER JOIN stage1features ON (stage1features.lesion_id = lesion.lesion_id)")
+  
+  # prune entries and extract feature subsets
+  # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+  lesionsfields = names(lesionsQueryinfo)
+  lesionsinfo = lesionsQueryinfo[c(1:24)]
+  
+  # 2) all T1W features
+  lesionsQuerymass <- dbGetQuery(conn, "SELECT *
+           FROM  lesion
+           INNER JOIN mass_lesion ON (mass_lesion.lesion_id = lesion.lesion_id)
+           INNER JOIN stage1features ON (stage1features.lesion_id = lesion.lesion_id)")
+  
+  # prune entries and extract mass info
+  lesionsmass = names(lesionsQuerymass)
+  lesionsmassinfo = lesionsQuerymass[c(1:33)]
+  
+  # 2) all T1W features
+  lesionsQuerynonmass <- dbGetQuery(conn, "SELECT *
+           FROM  lesion
+           INNER JOIN nonmass_lesion ON (nonmass_lesion.lesion_id = lesion.lesion_id)
+           INNER JOIN stage1features ON (stage1features.lesion_id = lesion.lesion_id)")
+  
+  # prune entries and extract nonmass
+  lesionsmass = names(lesionsQuerynonmass)
+  lesionsnonmassinfo = lesionsQuerynonmass[c(1:33)]
+  
+  output <- list(features=allfeatures, info=lesionsinfo, mass=lesionsmassinfo, nonmass=lesionsnonmassinfo)
+  return(output)
+}
+
+```
+
+Start by loading data
+```{r fig.width=7, fig.height=6}
+all = read_data(subdata="multi", ids=1:409)
+lesioninfo = all$info
+#install.packages('reshape')
+library(reshape)
+
+# Number of patients:
+nopatients = cast(lesioninfo, ~cad_pt_no_txt)
+print(length(nopatients))
+
+# histopathology source
+proc_source = cast(lesioninfo, ~proc_proc_source_int)
+summary(proc_source)
+# by guidance type
+print(cast(lesioninfo, proc_proc_tp_int~proc_proc_source_int))
+# by guidance localization
+print(cast(lesioninfo, proc_proc_tp_int~proc_proc_guid_int))
+
+# subset by mass and non-masses
+print(cast(lesioninfo, ~lesion_label))
+
+# subset by pathology
+patho=summary(as.factor(lesioninfo$lesion_diagnosis))
+for(k in 1:length(patho)){
+  print(cast(lesioninfo, ~lesion_label, subset=lesion_diagnosis==names(patho[k])) )
+}
+print(patho)
+
+
+# histopathology source
+proc_source_type = cast(lesioninfo, proc_proc_guid_int~proc_proc_tp_int~proc_proc_source_int)
+summary(proc_source)
+
+
+```
+
+Analyze BIRADS descriptors
+=========
+```{r}
+# curve types
+massinfo = all$mass
+nonmassinfo = all$nonmass
+print(cast(massinfo,lesion_label~find_curve_int ))
+print(cast(nonmassinfo,lesion_label~find_curve_int ))
+
+# initial enhancement
+print(cast(massinfo,lesion_label~find_mri_dce_init_enh_int ))
+
+# Morphology
+print(cast(massinfo,lesion_label~find_mammo_n_mri_mass_shape_int ))
+print(cast(massinfo,lesion_label~find_mri_mass_margin_int ))
+
+# Nonmass
+print(cast(nonmassinfo,lesion_label~find_mri_nonmass_int_enh_int ))
+print(cast(nonmassinfo,lesion_label~find_mri_nonmass_dist_int))
+
+print(cast(nonmassinfo,lesion_label~find_mri_nonmass_dist_int+find_mri_nonmass_int_enh_int ))
+
+# 
+```
+
+Query Biomatrix via ODBC library
+====
+```{r}
+library(RODBC)
+con<-odbcConnect("PostgreSQL35W")
+sqlTables(con, "tbl_pt_exam")
+
+lesioninfo_reasons = data.frame()
+for(k in 1:length(lesioninfo$cad_pt_no_txt)){
+  print(k)
+  CADid = lesioninfo$cad_pt_no_txt[k]
+  datetime = lesioninfo$exam_dt_datetime[k]
+  date = strsplit(datetime, " ")[[1]][1]
+  query<-paste0("SELECT * FROM public.tbl_pt_mri_cad_record, public.tbl_pt_exam WHERE public.tbl_pt_exam.pt_id = public.tbl_pt_mri_cad_record.pt_id and cad_pt_no_txt = '",CADid,"' and exam_dt_datetime = '", date, "'")
+  res<-sqlQuery(con, query)
+  lesioninfo_reasons = rbind(lesioninfo_reasons, res)
+}
+
+summary(lesioninfo_reasons)
+
+# by guidance localization
+print(cast(lesioninfo_reasons, latest_mutation_status_int+sty_indicator_high_risk_yn~sty_indicator_high_risk_brca_1_yn))
+
+indicator_highrisk = cast(lesioninfo_reasons, cad_pt_no_txt+sty_indicator_high_risk_yn+sty_indicator_high_risk_brca_1_yn+sty_indicator_high_risk_brca_2_yn+sty_indicator_high_risk_brca_1_or_2_yn+sty_indicator_high_risk_other_gene_yn+sty_indicator_high_risk_prior_high_risk_marker_yn+sty_indicator_high_risk_prior_personal_can_hist_yn+sty_indicator_high_risk_hist_of_mantle_rad_yn+sty_indicator_high_risk_fam_hist_yn+sty_indicator_rout_screening_obsp_yn~latest_mutation_status_int)
+print(indicator_highrisk)
+
+indicator_nohighrisk = cast(lesioninfo_reasons, cad_pt_no_txt+sty_indicator_pre_operative_extent_of_dis_yn+sty_indicator_post_operative_margin_yn+sty_indicator_pre_neoadj_trtmnt_yn+sty_indicator_post_neoadj_trtmnt_yn+sty_indicator_prob_solv_diff_img_yn+sty_indicator_scar_vs_recurr_yn+sty_indicator_folup_recommend_yn+sty_indicator_add_eval_as_folup_yn+sty_indicator_folup_after_pre_exam_yn~latest_mutation_status_int)
+print(indicator_nohighrisk)
+
+save.image("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/biomatrix_results_analyze_populationstats.RData")
+write.csv(lesioninfo_reasons, file = "biomatrix_results_analyze_populationstats.csv")
+write.csv(indicator_highrisk, file = "indicator_highrisk.csv")
+write.csv(indicator_nohighrisk, file = "indicator_nohighrisk.csv")
+
+```
+
+

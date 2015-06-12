@@ -1,0 +1,1138 @@
+plot
+===
+```{r warning=FALSE, message=FALSE}
+surface_forestperfm <- function(grdperf){
+  library(gridExtra) 
+  library(base)
+  library(lattice)
+  
+  
+  graphlist<-list()
+  count <- 1
+  # design acuTrain
+  z = grdperf$acuTrain
+  gD=unique(grdperf$x)
+  gD = gD[order(gD, decreasing = FALSE)]
+  gT=unique(grdperf$y)
+  gT = gT[order(gT, decreasing = FALSE)]
+  
+  for(i in 1:length(grdperf$x)){
+     
+     
+  }
+  
+  dim(z) <- c(length(gD), length(gT))
+  w1 <- wireframe(z, gD,gT,  box = FALSE,
+                  xlab = "Depth of trees (D)", ylab = "Number of trees (T)",
+                  main = "Influence of forest parameters on Accuracy Train",
+                  drape = TRUE,
+                  colorkey = TRUE,
+                  light.source = c(10,0,10), 
+                  col.regions = colorRampPalette(c("red", "blue"))(100),
+                  screen = list(z = 30, x = -60))
+  graphlist[[count]]<-w1
+  count <- count+1
+  
+  # design rocTrain
+  z = grdperf$rocTrain
+  dim(z) <- c(length(gD), length(gT))
+  w2 <- wireframe(z, gD,gT,  box = FALSE,
+                  xlab = "Depth of trees (D)", ylab = "Number of trees (T)",
+                  main = "Influence of forest parameters on ROC Train",
+                  drape = TRUE,
+                  colorkey = TRUE,
+                  light.source = c(10,0,10), 
+                  col.regions = colorRampPalette(c("red", "blue"))(100),
+                  screen = list(z = 30, x = -60))
+  graphlist[[count]]<-w2
+  count <- count+1
+  
+  # design acuTest
+  z = grdperf$acuTest
+  dim(z) <- c(length(gD), length(gT))
+  w3 <- wireframe(z, gD,gT,  box = FALSE,
+                  xlab = "Depth of trees (D)", ylab = "Number of trees (T)",
+                  main = "Influence of forest parameters on Accuracy Test",
+                  drape = TRUE,
+                  colorkey = TRUE,
+                  light.source = c(10,0,10), 
+                  col.regions = colorRampPalette(c("red", "blue"))(100),
+                  screen = list(z = 30, x = -60))
+  graphlist[[count]]<-w3
+  count <- count+1
+  
+  # design rocTest
+  z = grdperf$rocTest
+  dim(z) <- c(length(gD), length(gT))
+  w4 <- wireframe(z, gD,gT,  box = FALSE,
+                  xlab = "Depth of trees (D)", ylab = "Number of trees (T)",
+                  main = "Influence of forest parameters on ROC Test",
+                  drape = TRUE,
+                  colorkey = TRUE,
+                  light.source = c(10,0,10), 
+                  col.regions = colorRampPalette(c("red", "blue"))(100),
+                  screen = list(z = 30, x = -60))
+  graphlist[[count]]<-w4
+  count <- count+1
+  
+  
+  # finally plot in grid
+  do.call("grid.arrange",c(graphlist,ncol=2))
+}
+```
+
+CV validation summary
+======
+```{r fig.width=9, fig.height=8, warning=FALSE}
+setwd("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF")
+load("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/results/cvKstage1grdperf_all.RData")
+resstage1=res
+
+# plot ROC of resamples at max perf across cvFolds
+library(pROC)
+library(caret)
+library(MASS)
+cvK=10
+resamROC_train=data.frame()
+resamROC_test=data.frame()
+count=0
+meanAUCstage1={}
+meanSenstage1={}
+meanSpecstage1={}
+grdperfstage1=data.frame()
+grdperfstage1plot=data.frame()
+once=FALSE
+
+for(k in 1:cvK){
+  if(max(resstage1$ensemblegrdperf[k]$grdperf$rocTest) > 0.90){
+      resamROC_train = rbind(resamROC_train, resstage1$maxM[k]$maxp$trainprob)
+      resamROC_test = rbind(resamROC_test, resstage1$maxM[k]$maxp$testprob)
+      count=count+1
+  }
+  if(median(resstage1$ensemblegrdperf[k]$grdperf$rocTest)>0.80){
+    meanAUCstage1 = append(meanAUCstage1, resstage1$ensemblegrdperf[k]$grdperf$rocTest)
+    meanSenstage1 = append(meanSenstage1, resstage1$ensemblegrdperf[k]$grdperf$senTest)
+    meanSpectage1 = append(meanSenstage1, resstage1$ensemblegrdperf[k]$grdperf$speTest)
+    # for param plots
+    if(!once){
+      grdperfstage1plot = resstage1$ensemblegrdperf[k]$grdperf
+      once=TRUE
+      cplot=1
+    }
+    grdperfstage1plot = grdperfstage1plot + resstage1$ensemblegrdperf[k]$grdperf
+    cplot=cplot+1
+    for(j in 1:length(resstage1$maxM[k]$maxp$T)){
+      bestgen = resstage1$ensemblegrdperf[k]$grdperf[(resstage1$ensemblegrdperf[k]$grdperf$x==resstage1$maxM[k]$maxp$D[j] & resstage1$ensemblegrdperf[k]$grdperf$y==resstage1$maxM[k]$maxp$T[j]),]
+      grdperfstage1 = rbind(grdperfstage1, bestgen)
+    }
+  }
+}
+print("sampledAUCstage1")
+print( quantile(meanAUCstage1) ) 
+print( quantile(meanSenstage1) ) 
+print( quantile(meanSpectage1) ) 
+print( grdperfstage1 )
+surface_forestperfm(grdperfstage1plot/cplot)
+print(grdperfstage1plot/cplot)
+
+# for resamROC
+ROCF_train <- plot.roc(resamROC_train$obs, resamROC_train$mass, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_test <- plot.roc(resamROC_test$obs, resamROC_test$mass, col="#860000", lty=2,
+                      main="ROC for stage1 max cvFolds", legacy.axes=TRUE)
+print(ROCF_train$auc)
+print( mean(grdperfstage1$rocTrain) )
+
+print(ROCF_test$auc)
+print( mean(grdperfstage1$rocTest) )
+
+legend("bottomright", 
+       legend = c(paste0("train: AUC=", formatC(ROCF_train$auc,digits=2, format="f")), 
+                  paste0("cv.test: AUC=", formatC(ROCF_test$auc,digits=2, format="f"))), 
+       col = c("#000086", "#860000"),lwd = 2, lty = c(1,2))
+
+load("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/results/cvKmassgrdperf_all.RData")
+resmass=res
+
+# plot ROC of resamples at max perf across cvFolds
+cvK=10
+resamROC_train=data.frame()
+resamROC_test=data.frame()
+count=0
+meanAUCmass={}
+meanSenmass={}
+meanSpecmass={}
+grdperfmass=data.frame()
+grdperfmassplot=data.frame()
+once=FALSE
+for(k in 1:cvK){
+  if(max(resmass$ensemblegrdperf[k]$grdperf$rocTest) > 0.87){
+      resamROC_train = rbind(resamROC_train, resmass$maxM[k]$maxp$trainprob)
+      resamROC_test = rbind(resamROC_test, resmass$maxM[k]$maxp$testprob)
+      count=count+1
+  }
+  if(median(resmass$ensemblegrdperf[k]$grdperf$rocTest)>0.80){
+    meanAUCmass = append(meanAUCmass, resmass$ensemblegrdperf[k]$grdperf$rocTest)
+    meanSenmass = append(meanSenmass, resmass$ensemblegrdperf[k]$grdperf$senTest)
+    meanSpecmass = append(meanSpecmass, resmass$ensemblegrdperf[k]$grdperf$speTest)
+    # for param plots
+    if(!once){
+      grdperfmassplot = resmass$ensemblegrdperf[k]$grdperf
+      once=TRUE
+      cplot=1
+    }
+    grdperfmassplot = grdperfmassplot + resmass$ensemblegrdperf[k]$grdperf
+    cplot=cplot+1
+    for(j in 1:length(resmass$maxM[k]$maxp$T)){
+      bestgen = resmass$ensemblegrdperf[k]$grdperf[(resmass$ensemblegrdperf[k]$grdperf$x==resmass$maxM[k]$maxp$D[j] & resmass$ensemblegrdperf[k]$grdperf$y==resmass$maxM[k]$maxp$T[j]),]
+      grdperfmass = rbind(grdperfmass, bestgen)
+    }
+  }
+}
+print("sampled AUCstage2 mass")
+print( quantile(meanAUCmass) ) 
+print( quantile(meanSenmass) ) 
+print( quantile(meanSpecmass) ) 
+print( grdperfmass )
+surface_forestperfm(grdperfmassplot/cplot)
+print(grdperfmassplot/cplot)
+
+# for resamROC
+ROCF_train <- plot.roc(resamROC_train$obs, resamROC_train$C, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_test <- plot.roc(resamROC_test$obs, resamROC_test$C, col="#860000", lty=2, legacy.axes=TRUE,
+                      main="ROC for mass max cvFolds")
+print(ROCF_train$auc)
+print( mean(grdperfmass$rocTrain) )
+
+print(ROCF_test$auc)
+print( mean(grdperfmass$rocTest) )
+legend("bottomright", 
+       legend = c(paste0("train: AUC=", formatC(ROCF_train$auc,digits=2, format="f")), 
+                  paste0("cv.test: AUC=", formatC(ROCF_test$auc,digits=2, format="f"))), 
+       col = c("#000086", "#860000"),lwd = 2, lty = c(1,2))
+
+
+load("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/results/cvKnonmassgrdperf_all.RData")
+resnonmass=res
+
+# plot ROC of resamples at max perf across cvFolds
+cvK=10
+resamROC_train=data.frame()
+resamROC_test=data.frame()
+meanAUCnonmass={}
+meanSennonmass={}
+meanSpecnonmass={}
+grdperfnonmass=data.frame()
+count=0
+grdperfnonmassplot=data.frame()
+once=FALSE
+for(k in 1:cvK){
+  if(max(resnonmass$ensemblegrdperf[k]$grdperf$rocTest) > 0.9){
+    resamROC_train = rbind(resamROC_train, resnonmass$maxM[k]$maxp$trainprob)
+    resamROC_test = rbind(resamROC_test, resnonmass$maxM[k]$maxp$testprob)
+    count=count+1
+  }
+  if(median(resnonmass$ensemblegrdperf[k]$grdperf$rocTest)>0.8){
+    meanAUCnonmass = append(meanAUCnonmass, resnonmass$ensemblegrdperf[k]$grdperf$rocTest)
+    meanSennonmass = append(meanSennonmass, resnonmass$ensemblegrdperf[k]$grdperf$senTest)
+    meanSpecnonmass = append(meanSpecnonmass, resnonmass$ensemblegrdperf[k]$grdperf$speTest)
+    # for param plots
+    if(!once){
+      grdperfnonmassplot = resnonmass$ensemblegrdperf[k]$grdperf
+      once=TRUE
+      cplot=1
+    }
+    grdperfnonmassplot = grdperfnonmassplot + resnonmass$ensemblegrdperf[k]$grdperf
+    cplot=cplot+1
+    for(j in 1:length(resnonmass$maxM[k]$maxp$T)){
+      bestgen = resnonmass$ensemblegrdperf[k]$grdperf[(resnonmass$ensemblegrdperf[k]$grdperf$x==resnonmass$maxM[k]$maxp$D[j] & resnonmass$ensemblegrdperf[k]$grdperf$y==resnonmass$maxM[k]$maxp$T[j]),]
+      grdperfnonmass = rbind(grdperfnonmass, bestgen)
+    }
+  }
+}
+print("sampled AUCstage2 non-mass")
+print( quantile(meanAUCnonmass) ) 
+print( quantile(meanSennonmass) ) 
+print( quantile(meanSpecnonmass) ) 
+print( grdperfnonmass )
+surface_forestperfm(grdperfnonmassplot/cplot)
+print(grdperfnonmassplot/cplot)
+
+# for resamROC
+ROCF_train <- plot.roc(resamROC_train$obs, resamROC_train$C, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_test <- plot.roc(resamROC_test$obs, resamROC_test$C, col="#860000", lty=2, legacy.axes=TRUE,
+                      main="ROC for non-mass max cvFolds")
+print(ROCF_train$auc)
+print( mean(grdperfnonmass$rocTrain) )
+
+print(ROCF_test$auc)
+print( mean(grdperfnonmass$rocTest) )
+
+legend("bottomright", 
+       legend = c(paste0("train: AUC=", formatC(ROCF_train$auc,digits=2, format="f")), 
+                  paste0("cv.test: AUC=", formatC(ROCF_test$auc,digits=2, format="f"))), 
+       col = c("#000086", "#860000"),lwd = 2, lty = c(1,2))
+
+
+load("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/results/cvKmultigrdperf.RData")
+resmulti=res
+
+# plot ROC of resamples at max perf across cvFolds
+cvK=10
+resamROC_train=data.frame()
+resamROC_test=data.frame()
+meanAUCmulti={}
+meanSenmulti={}
+meanSpecmulti={}
+grdperfmulti=data.frame()
+count=0
+for(k in 1:cvK){
+  if(max(resmulti$ensemblegrdperf[k]$grdperf$rocTest) > 0.7){
+    resamROC_train = rbind(resamROC_train, resmulti$maxM[k]$maxp$trainprob)
+    resamROC_test = rbind(resamROC_test, resmulti$maxM[k]$maxp$testprob)
+    count=count+1
+  }
+  if(median(resmulti$ensemblegrdperf[k]$grdperf$rocTest)>0.6){
+    meanAUCmulti = append(meanAUCmulti, resmulti$ensemblegrdperf[k]$grdperf$rocTest)
+    meanSenmulti = append(meanSenmulti, resmulti$ensemblegrdperf[k]$grdperf$senTest)
+    meanSpecmulti = append(meanSpecmulti, resmulti$ensemblegrdperf[k]$grdperf$speTest)
+    for(j in 1:length(resmulti$maxM[k]$maxp$T)){
+      bestgen = resmulti$ensemblegrdperf[k]$grdperf[(resmulti$ensemblegrdperf[k]$grdperf$x==resmulti$maxM[k]$maxp$D[j] & resmulti$ensemblegrdperf[k]$grdperf$y==resmulti$maxM[k]$maxp$T[j]),]
+      grdperfmulti = rbind(grdperfmulti, bestgen)
+    }
+  }
+}
+print("sampled AUCstage2 multi")
+print( quantile(meanAUCmulti) ) 
+print( quantile(meanSenmulti) ) 
+print( quantile(meanSpecmulti) ) 
+print( grdperfmulti )
+surface_forestperfm(grdperfmulti)
+
+# for resamROC
+ROCF_trainmb <- plot.roc(resamROC_train$obs, resamROC_train$massB, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_trainmm <- plot.roc(resamROC_train$obs, resamROC_train$massM, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_trainnb <- plot.roc(resamROC_train$obs, resamROC_train$nonmassB, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_trainnm <- plot.roc(resamROC_train$obs, resamROC_train$nonmassM, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_testmb <- plot.roc(resamROC_test$obs, resamROC_test$massB, col="#860000", lty=2, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_testmm <- plot.roc(resamROC_test$obs, resamROC_test$massM, col="#860000", lty=2, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_testnb <- plot.roc(resamROC_test$obs, resamROC_test$nonmassB, col="#860000", lty=2, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_testnm <- plot.roc(resamROC_test$obs, resamROC_test$nonmassM, col="#860000", lty=2, legacy.axes=TRUE,
+                      main="ROC for multi max cvFolds")
+ROCF_trainauc = (ROCF_trainmb$auc+ROCF_trainmm$auc+ROCF_trainnb$auc+ROCF_testnm$auc)/4
+ROCF_testauc = (ROCF_testmb$auc+ROCF_testmm$auc+ROCF_testnb$auc+ROCF_trainnm$auc)/4
+print(ROCF_trainauc)
+print( mean(grdperfmulti$rocTrain) )
+
+print(ROCF_testauc)
+print( mean(grdperfmulti$rocTest) )
+legend("bottomright", 
+       legend = c(paste0("train: AUC=", formatC(ROCF_trainauc,digits=2, format="f")), 
+                  paste0("cv.test: AUC=", formatC(ROCF_testauc,digits=2, format="f"))), 
+       col = c("#000086", "#860000"),lwd = 2, lty = c(1,2))
+
+load("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/results/cvKoneshotgrdperf_all.RData")
+resoneshot=res
+
+# plot ROC of resamples at max perf across cvFolds
+cvK=10
+resamROC_train=data.frame()
+resamROC_test=data.frame()
+meanAUConeshot={}
+meanSenoneshot={}
+meanSpeconeshot={}
+grdperfoneshot=data.frame()
+count=0
+grdperfoneshotplot=data.frame()
+once=FALSE
+for(k in 1:cvK){
+  if(max(resoneshot$ensemblegrdperf[k]$grdperf$rocTest) > 0.8){
+    resamROC_train = rbind(resamROC_train, resoneshot$maxM[k]$maxp$trainprob)
+    resamROC_test = rbind(resamROC_test, resoneshot$maxM[k]$maxp$testprob)
+    count=count+1
+  }
+  if(median(resoneshot$ensemblegrdperf[k]$grdperf$rocTest)>0.8){
+    meanAUConeshot = append(meanAUConeshot, resoneshot$ensemblegrdperf[k]$grdperf$rocTest)
+    meanSenoneshot = append(meanSenoneshot, resoneshot$ensemblegrdperf[k]$grdperf$senTest)
+    meanSpeconeshot = append(meanSpeconeshot, resoneshot$ensemblegrdperf[k]$grdperf$speTest)
+    # for param plots
+    if(!once){
+      grdperfoneshotplot = resoneshot$ensemblegrdperf[k]$grdperf
+      once=TRUE
+      cplot=1
+    }
+    grdperfoneshotplot = grdperfoneshotplot + resoneshot$ensemblegrdperf[k]$grdperf
+    cplot=cplot+1
+    for(j in 1:length(resoneshot$maxM[k]$maxp$T)){
+      bestgen = resoneshot$ensemblegrdperf[k]$grdperf[(resoneshot$ensemblegrdperf[k]$grdperf$x==resoneshot$maxM[k]$maxp$D[j] & resoneshot$ensemblegrdperf[k]$grdperf$y==resoneshot$maxM[k]$maxp$T[j]),]
+      grdperfoneshot = rbind(grdperfoneshot, bestgen)
+    }
+    
+  }
+}
+print("sampled AUCstage2 non-mass")
+print( quantile(meanAUConeshot) ) 
+print( quantile(meanSenoneshot) ) 
+print( quantile(meanSpeconeshot) ) 
+print( grdperfoneshot )
+surface_forestperfm(grdperfoneshotplot/cplot)
+print(grdperfoneshotplot/cplot)
+
+# for resamROC
+ROCF_train <- plot.roc(resamROC_train$obs, resamROC_train$C, col="#000086", lty=1, legacy.axes=TRUE)
+par(new=TRUE)
+ROCF_test <- plot.roc(resamROC_test$obs, resamROC_test$C, col="#860000", lty=2, legacy.axes=TRUE,
+                      main="ROC for oneshot max cvFolds")
+print(ROCF_train$auc)
+print( mean(grdperfoneshot$rocTrain) )
+
+print(ROCF_test$auc)
+print( mean(grdperfoneshot$rocTest) )
+legend("bottomright", 
+       legend = c(paste0("train: AUC=", formatC(ROCF_train$auc,digits=2, format="f")), 
+                  paste0("cv.test: AUC=", formatC(ROCF_test$auc,digits=2, format="f"))), 
+       col = c("#000086", "#860000"),lwd = 2, lty = c(1,2))
+
+```
+
+Plot
+====
+```{r warning=FALSE}
+AUCframestage1=data.frame(AUC = meanAUCstage1)
+AUCframestage1$MorN = "stage1"
+AUCframestage1$metric = "AUC"
+
+AUCframestage2mass=data.frame(AUC = meanAUCmass)
+AUCframestage2mass$MorN = "stage2_mass"
+AUCframestage2mass$metric = "AUC"
+
+AUCframestage2nonmass=data.frame(AUC = meanAUCnonmass)
+AUCframestage2nonmass$MorN = "stage2_nonmass"
+AUCframestage2nonmass$metric = "AUC"
+
+AUCframeoneshot=data.frame(AUC = meanAUConeshot)
+AUCframeoneshot$MorN = "oneshot"
+AUCframeoneshot$metric = "AUC"
+AUCframe = rbind(AUCframeoneshot, AUCframestage1, AUCframestage2mass, AUCframestage2nonmass)
+
+library(ggplot2)
+library(scales)
+library(RColorBrewer)
+
+print(
+  ggplot(data = AUCframe, aes(x = MorN, y = AUC)) +
+    geom_boxplot(aes(fill = interaction(MorN)))+
+    theme_bw(base_size = 16) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_fill_manual(name = "Cascade classifier performance by stages",
+                      values = c("#99CC00","#993366","#008080", "#0099CC")) 
+)
+
+```
+
+
+Cascade vs. oneshot
+===
+```{r warning=FALSE, message=FALSE}
+rpart_inputpreddata <- function(subdata, ids) {
+  library("RSQLite")
+  sqlite <- dbDriver("SQLite")
+  conn <- dbConnect(sqlite, "stage1localData.db")
+  
+  # 2) all T1W features
+  lesionsQuery <- dbGetQuery(conn, "SELECT *
+           FROM  stage1features
+           INNER JOIN lesion ON (stage1features.lesion_id = lesion.lesion_id)
+           INNER JOIN f_dynamic ON (stage1features.lesion_id = f_dynamic.lesion_id)
+           INNER JOIN f_morphology ON (stage1features.lesion_id = f_morphology.lesion_id)
+           INNER JOIN f_texture ON (stage1features.lesion_id = f_texture.lesion_id)")
+  
+  # prune entries and extract feature subsets
+  # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+  lesionfields =  names(lesionsQuery)
+  lesioninfo = lesionsQuery[c(1,2,150,151)]
+  stage1features = lesionsQuery[c(3:103,124:127)]
+  dynfeatures = lesionsQuery[c(154:187)]
+  morphofeatures = lesionsQuery[c(190:208)]
+  texfeatures = lesionsQuery[c(211:234)]
+  
+  # combine all features
+  allfeatures = cbind(lesioninfo[c(2,3)], stage1features, dynfeatures, morphofeatures, texfeatures)   
+  
+  if(subdata=="stage2"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "NC", "C") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "NC", "C") -> N$lesion_label
+    allfeatures = rbind(M,N)
+  }
+  if(subdata=="stage1"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "mass", "mass") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "nonmass", "nonmass") -> N$lesion_label
+    allfeatures = data.frame(rbind(M,N))     
+  }
+  if(subdata=="oneshot"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "NC", "C") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "NC", "C") -> N$lesion_label
+    allfeatures = data.frame(rbind(M,N)) 
+  }
+  # procees data
+  allfeatures$lesion_label <- as.factor(allfeatures$lesion_label)
+  allfeatures$peakCr_inside <- as.factor(allfeatures$peakCr_inside)
+  allfeatures$peakVr_inside <- as.factor(allfeatures$peakVr_inside)
+  allfeatures$peakCr_countor <- as.factor(allfeatures$peakCr_countor)
+  allfeatures$peakVr_countor <- as.factor(allfeatures$peakVr_countor)
+  allfeatures$k_Max_Margin_Grad <- as.factor(allfeatures$k_Max_Margin_Grad)
+  allfeatures$max_RGH_mean_k <- as.factor(allfeatures$max_RGH_mean_k)
+  allfeatures$max_RGH_var_k <- as.factor(allfeatures$max_RGH_var_k)
+  
+  output <- allfeatures
+  return(output)
+}
+
+read_data <- function(subdata, ids) {
+  library("RSQLite")
+  sqlite <- dbDriver("SQLite")
+  conn <- dbConnect(sqlite, "stage1localData.db")
+  
+  # 2) all T1W features
+  lesionsQuery <- dbGetQuery(conn, "SELECT *
+           FROM  stage1features
+           INNER JOIN lesion ON (stage1features.lesion_id = lesion.lesion_id)
+           INNER JOIN f_dynamic ON (stage1features.lesion_id = f_dynamic.lesion_id)
+           INNER JOIN f_morphology ON (stage1features.lesion_id = f_morphology.lesion_id)
+           INNER JOIN f_texture ON (stage1features.lesion_id = f_texture.lesion_id)")
+  
+  # prune entries and extract feature subsets
+  # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+  lesionfields =  names(lesionsQuery)
+  lesioninfo = lesionsQuery[c(1,2,150,151)]
+  stage1features = lesionsQuery[c(3:103,124:127)]
+  dynfeatures = lesionsQuery[c(154:187)]
+  morphofeatures = lesionsQuery[c(190:208)]
+  texfeatures = lesionsQuery[c(211:234)]
+  
+  # combine all features
+  allfeatures = cbind(lesioninfo[c(2,3)], stage1features, dynfeatures, morphofeatures, texfeatures)   
+  
+  if(subdata=="stage2"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "NC", "C") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "NC", "C") -> N$lesion_label
+    allfeatures = rbind(M,N)
+  }
+  if(subdata=="stage1"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "mass", "mass") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "nonmass", "nonmass") -> N$lesion_label
+    allfeatures = data.frame(rbind(M,N))     
+  }
+  if(subdata=="oneshot"){
+    # organized the data by subdata
+    allfeatures = allfeatures[ids,]
+    M<-subset(allfeatures, lesion_label=="massB" | lesion_label=="massM")
+    ifelse( M$lesion_label == "massB", "NC", "C") -> M$lesion_label
+    N<-subset(allfeatures, lesion_label=="nonmassB" | lesion_label=="nonmassM")
+    ifelse( N$lesion_label == "nonmassB", "NC", "C") -> N$lesion_label
+    allfeatures = data.frame(rbind(M,N)) 
+  }
+  # procees data
+  allfeatures$lesion_label <- as.factor(allfeatures$lesion_label)
+  allfeatures$peakCr_inside <- as.factor(allfeatures$peakCr_inside)
+  allfeatures$peakVr_inside <- as.factor(allfeatures$peakVr_inside)
+  allfeatures$peakCr_countor <- as.factor(allfeatures$peakCr_countor)
+  allfeatures$peakVr_countor <- as.factor(allfeatures$peakVr_countor)
+  allfeatures$k_Max_Margin_Grad <- as.factor(allfeatures$k_Max_Margin_Grad)
+  allfeatures$max_RGH_mean_k <- as.factor(allfeatures$max_RGH_mean_k)
+  allfeatures$max_RGH_var_k <- as.factor(allfeatures$max_RGH_var_k)
+  
+  # 2) all T1W features
+  lesionsQueryinfo <- dbGetQuery(conn, "SELECT *
+           FROM  lesion
+           INNER JOIN stage1features ON (stage1features.lesion_id = lesion.lesion_id)")
+  
+  # prune entries and extract feature subsets
+  # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+  lesionsfields = names(lesionsQueryinfo)
+  lesionsinfo = lesionsQueryinfo[c(1:24)]
+  lesionsinfo = lesionsinfo[lesionsinfo$lesion_id==ids,]
+  
+  # 2) all T1W features
+  lesionsQuerymass <- dbGetQuery(conn, "SELECT *
+           FROM  lesion
+           INNER JOIN mass_lesion ON (mass_lesion.lesion_id = lesion.lesion_id)
+           INNER JOIN stage1features ON (stage1features.lesion_id = lesion.lesion_id)")
+  
+  # prune entries and extract mass info
+  lesionsmass = names(lesionsQuerymass)
+  lesionsmassinfo = lesionsQuerymass[ids,c(1:33)]
+  lesionsmassinfo = lesionsmassinfo[lesionsmassinfo$lesion_id==ids,]
+  
+  
+  # 2) all T1W features
+  lesionsQuerynonmass <- dbGetQuery(conn, "SELECT *
+           FROM  lesion
+           INNER JOIN nonmass_lesion ON (nonmass_lesion.lesion_id = lesion.lesion_id)
+           INNER JOIN stage1features ON (stage1features.lesion_id = lesion.lesion_id)")
+  
+  # prune entries and extract nonmass
+  lesionsmass = names(lesionsQuerynonmass)
+  lesionsnonmassinfo = lesionsQuerynonmass[ids,c(1:33)]  
+  lesionsnonmassinfo = lesionsnonmassinfo[lesionsnonmassinfo$lesion_id==ids,]
+  
+  
+  output <- list(features=allfeatures, info=lesionsinfo, mass=lesionsmassinfo, nonmass=lesionsnonmassinfo)
+  return(output)
+}
+
+```
+
+
+Cascade (by aggreggating best generalization forests) vs. one-shot
+========================================================
+
+Process Stage1
+====
+```{r fig.width=9, fig.height=8, warning=FALSE}
+library(caret)
+library(MASS)
+summary(resstage1)
+summary(resstage1$maxM$maxp)
+summary(resstage1$maxM[1]$maxp)
+
+stage1dat = rpart_inputpreddata(subdata="stage1", ids=1:409)
+nforests = length(resstage1$maxM)
+ensclasspo=list()
+treemclasspo=list()
+count=0
+for(i in 1:nforests){  
+  if(max(resstage1$ensemblegrdperf[i]$grdperf$rocTest) > 0.6){  
+    D=resstage1$maxM[i]$maxp$D
+    T=resstage1$maxM[i]$maxp$T
+    cat("RF", i,": D=", D, ", T=",T, "\n")
+    treem = resstage1$maxM[i]$maxp$forest
+    count=count+1
+    
+    # Calcultate posterior Probabilities on grid points
+    fclasspo=list()
+    for (t in 1:T){
+      temp <- predict(treem[t]$tree, newdata = stage1dat, type="prob") #
+      fclasspo <- append(fclasspo, list(cpo = temp))
+    }  
+    
+    # performance on Train/Test set separately
+    # extract ensamble class probabilities (when T > 1)
+    # init ensample class posteriors
+    enclasspo <- matrix(, nrow = nrow(as.data.frame(fclasspo[1]$cpo)), ncol = 2)
+    enclasspo[,1] = fclasspo[1]$cpo[,1]
+    enclasspo[,2] = fclasspo[1]$cpo[,2]
+    if(T>=2){
+      for (t in 2:T){
+        enclasspo[,1] = enclasspo[,1]+fclasspo[t]$cpo[,1]
+        enclasspo[,2] = enclasspo[,2]+fclasspo[t]$cpo[,2]
+      }
+    }
+    # majority voting averaging
+    enclasspo[,1] = (1/T)*enclasspo[,1]
+    enclasspo[,2] = (1/T)*enclasspo[,2]
+    treemclasspo <- append(treemclasspo, list(cpo = enclasspo))
+  }
+}
+
+
+# performance on Train/Test set separately
+# extract ensamble class probabilities (when T > 1)
+# init ensample class posteriors
+ensclasspo <- matrix(, nrow = nrow(treemclasspo[1]$cpo), ncol = 2)
+ensclasspo[,1] = treemclasspo[1]$cpo[,1]
+ensclasspo[,2] = treemclasspo[1]$cpo[,2]
+if(count>=2){
+  for (t in 2:count){
+    ensclasspo[,1] = ensclasspo[,1]+treemclasspo[t]$cpo[,1]
+    ensclasspo[,2] = ensclasspo[,2]+treemclasspo[t]$cpo[,2]
+  }
+}
+
+# majority voting averaging
+ensclasspo[,1] = (1/count)*ensclasspo[,1]
+ensclasspo[,2] = (1/count)*ensclasspo[,2]
+#print(ensclasspo)
+
+# on testing
+classes = levels(stage1dat$lesion_label)
+testprob = data.frame(C1=ensclasspo[,1],
+                      C2=ensclasspo[,2],
+                      pred=classes[apply(ensclasspo, 1, which.max)], 
+                      obs=stage1dat$lesion_label,
+                      ids=stage1dat$lesion_id)
+colnames(testprob)[1:2] <- classes
+pred=as.factor(apply(ensclasspo, 1, which.max))
+levels(pred) = levels(as.factor(unclass(stage1dat$lesion_label)))
+
+groundT = as.factor(unclass(stage1dat$lesion_label))
+levels(groundT) = levels(as.factor(unclass(stage1dat$lesion_label)))
+
+perf_test = confusionMatrix(pred, groundT)
+print(perf_test)  
+
+###########################################
+# subset for mass and non-mass
+masspredid = subset(testprob, pred=="mass")
+nonmasspredid = subset(testprob, pred=="nonmass")
+
+#compare ratio of stage 1 correct predictions
+summary(stage1dat$lesion_label)
+# vs.
+summary(masspredid)
+summary(nonmasspredid)
+
+masspreddat = rpart_inputpreddata(subdata="stage2", masspredid$ids)
+nonmasspreddat = rpart_inputpreddata(subdata="stage2", nonmasspredid$ids)
+
+```
+
+Process stage2: mass
+=====
+```{r fig.width=9, fig.height=8, warning=FALSE}
+#########################################
+nforests = length(resmass$maxM)
+ensclasspo=list()
+treemclasspo=list()
+count=0
+for(i in 1:nforests){  
+  if(max(resmass$ensemblegrdperf[i]$grdperf$rocTest) > 0.6){
+    D=resmass$maxM[i]$maxp$D
+    T=resmass$maxM[i]$maxp$T
+    cat("RF", i,": D=", D, ", T=",T, "\n")
+    treem = resmass$maxM[i]$maxp$forest
+    count=count+1
+    
+    # Calcultate posterior Probabilities on grid points
+    fclasspo=list()
+    for (t in 1:T){
+      temp <- predict(treem[t]$tree, newdata = masspreddat, type="prob") #
+      fclasspo <- append(fclasspo, list(cpo = temp))
+    }  
+    
+    # performance on Train/Test set separately
+    # extract ensamble class probabilities (when T > 1)
+    # init ensample class posteriors
+    enclasspo <- matrix(, nrow = nrow(as.data.frame(fclasspo[1]$cpo)), ncol = 2)
+    enclasspo[,1] = fclasspo[1]$cpo[,1]
+    enclasspo[,2] = fclasspo[1]$cpo[,2]
+    if(T>=2){
+      for (t in 2:T){
+        enclasspo[,1] = enclasspo[,1]+fclasspo[t]$cpo[,1]
+        enclasspo[,2] = enclasspo[,2]+fclasspo[t]$cpo[,2]
+      }
+    }
+    # majority voting averaging
+    enclasspo[,1] = (1/T)*enclasspo[,1]
+    enclasspo[,2] = (1/T)*enclasspo[,2]
+    treemclasspo <- append(treemclasspo, list(cpo = enclasspo))
+  }
+}
+
+# performance on Train/Test set separately
+# extract ensamble class probabilities (when T > 1)
+# init ensample class posteriors
+ensclasspo <- matrix(, nrow = nrow(treemclasspo[1]$cpo), ncol = 2)
+ensclasspo[,1] = treemclasspo[1]$cpo[,1]
+ensclasspo[,2] = treemclasspo[1]$cpo[,2]
+if(count>=2){
+  for (t in 2:count){
+    ensclasspo[,1] = ensclasspo[,1]+treemclasspo[t]$cpo[,1]
+    ensclasspo[,2] = ensclasspo[,2]+treemclasspo[t]$cpo[,2]
+  }
+}
+# majority voting averaging
+ensclasspo[,1] = (1/count)*ensclasspo[,1]
+ensclasspo[,2] = (1/count)*ensclasspo[,2]
+#print(ensclasspo)
+
+
+# on testing
+classes = levels(masspreddat$lesion_label)
+testprobmass = data.frame(C1=ensclasspo[,1],
+                      C2=ensclasspo[,2],
+                      pred=classes[apply(ensclasspo, 1, which.max)], 
+                      obs=masspreddat$lesion_label,
+                      ids=masspreddat$lesion_id)
+colnames(testprobmass)[1:2] <- classes
+pred=as.factor(apply(ensclasspo, 1, which.max))
+levels(pred) = levels(as.factor(unclass(masspreddat$lesion_label)))
+
+groundT = as.factor(unclass(masspreddat$lesion_label))
+levels(groundT) = levels(as.factor(unclass(masspreddat$lesion_label)))
+
+perf_testmass = confusionMatrix(pred, groundT)
+print(perf_testmass)  
+
+```
+
+
+Process stage2: nonmass
+=====
+```{r fig.width=9, fig.height=8, warning=FALSE}
+#########################################
+nforests = length(resnonmass$maxM)
+ensclasspo=list()
+treemclasspo=list()
+count=0
+for(i in 1:nforests){  
+  if(max(resnonmass$ensemblegrdperf[i]$grdperf$rocTest) > 0.6){
+    D=resnonmass$maxM[i]$maxp$D
+    T=resnonmass$maxM[i]$maxp$T
+    cat("RF", i,": D=", D, ", T=",T, "\n")
+    treem = resnonmass$maxM[i]$maxp$forest
+    count=count+1
+    
+    # Calcultate posterior Probabilities on grid points
+    fclasspo=list()
+    for (t in 1:T){
+      temp <- predict(treem[t]$tree, newdata = nonmasspreddat, type="prob") #
+      fclasspo <- append(fclasspo, list(cpo = temp))
+    }  
+    
+    # performance on Train/Test set separately
+    # extract ensamble class probabilities (when T > 1)
+    # init ensample class posteriors
+    enclasspo <- matrix(, nrow = nrow(as.data.frame(fclasspo[1]$cpo)), ncol = 2)
+    enclasspo[,1] = fclasspo[1]$cpo[,1]
+    enclasspo[,2] = fclasspo[1]$cpo[,2]
+    if(T>=2){
+      for (t in 2:T){
+        enclasspo[,1] = enclasspo[,1]+fclasspo[t]$cpo[,1]
+        enclasspo[,2] = enclasspo[,2]+fclasspo[t]$cpo[,2]
+      }
+    }
+    # majority voting averaging
+    enclasspo[,1] = (1/T)*enclasspo[,1]
+    enclasspo[,2] = (1/T)*enclasspo[,2]
+    treemclasspo <- append(treemclasspo, list(cpo = enclasspo))
+  }
+}
+
+# performance on Train/Test set separately
+# extract ensamble class probabilities (when T > 1)
+# init ensample class posteriors
+ensclasspo <- matrix(, nrow = nrow(treemclasspo[1]$cpo), ncol = 2)
+ensclasspo[,1] = treemclasspo[1]$cpo[,1]
+ensclasspo[,2] = treemclasspo[1]$cpo[,2]
+if(count>=2){
+  for (t in 2:count){
+    ensclasspo[,1] = ensclasspo[,1]+treemclasspo[t]$cpo[,1]
+    ensclasspo[,2] = ensclasspo[,2]+treemclasspo[t]$cpo[,2]
+  }
+}
+# majority voting averaging
+ensclasspo[,1] = (1/count)*ensclasspo[,1]
+ensclasspo[,2] = (1/count)*ensclasspo[,2]
+#print(ensclasspo)
+
+
+
+# on testing
+classes = levels(nonmasspreddat$lesion_label)
+testprobnonmass = data.frame(C1=ensclasspo[,1],
+                      C2=ensclasspo[,2],
+                      pred=classes[apply(ensclasspo, 1, which.max)], 
+                      obs=nonmasspreddat$lesion_label,
+                      ids=nonmasspreddat$lesion_id)
+colnames(testprobnonmass)[1:2] <- classes
+pred=as.factor(apply(ensclasspo, 1, which.max))
+levels(pred) = levels(as.factor(unclass(nonmasspreddat$lesion_label)))
+
+groundT = as.factor(unclass(nonmasspreddat$lesion_label))
+levels(groundT) = levels(as.factor(unclass(nonmasspreddat$lesion_label)))
+
+perf_testnonmass = confusionMatrix(pred, groundT)
+print(perf_testnonmass)  
+
+```
+
+Process oneshot:
+=====
+```{r fig.width=9, fig.height=8, warning=FALSE}
+load("Z:/Cristina/MassNonmass/Section1 - ExperimentsUpToDate/experimentsRadiologypaper-revision/Tree-based-RF/ensemble-Treebased-RF/results/cvKoneshotgrdperf.RData")
+resoneshot = res
+oneshotdat = rpart_inputpreddata(subdata="oneshot", ids=1:409)
+
+#########################################
+nforests = length(resoneshot$maxM)
+ensclasspo=list()
+treemclasspo=list()
+count=0
+for(i in 1:nforests){  
+    D=resoneshot$maxM[i]$maxp$D
+    T=resoneshot$maxM[i]$maxp$T
+    cat("RF", i,": D=", D, ", T=",T, "\n")
+    treem = resoneshot$maxM[i]$maxp$forest
+    count=count+1
+    
+    # Calcultate posterior Probabilities on grid points
+    fclasspo=list()
+    for (t in 1:T){
+      temp <- predict(treem[t]$tree, newdata = oneshotdat, type="prob") #
+      fclasspo <- append(fclasspo, list(cpo = temp))
+    }  
+    
+    # performance on Train/Test set separately
+    # extract ensamble class probabilities (when T > 1)
+    # init ensample class posteriors
+    enclasspo <- matrix(, nrow = nrow(as.data.frame(fclasspo[1]$cpo)), ncol = 2)
+    enclasspo[,1] = fclasspo[1]$cpo[,1]
+    enclasspo[,2] = fclasspo[1]$cpo[,2]
+    if(T>=2){
+      for (t in 2:T){
+        enclasspo[,1] = enclasspo[,1]+fclasspo[t]$cpo[,1]
+        enclasspo[,2] = enclasspo[,2]+fclasspo[t]$cpo[,2]
+      }
+    
+    # majority voting averaging
+    enclasspo[,1] = (1/T)*enclasspo[,1]
+    enclasspo[,2] = (1/T)*enclasspo[,2]
+    treemclasspo <- append(treemclasspo, list(cpo = enclasspo))
+  }
+}
+
+# performance on Train/Test set separately
+# extract ensamble class probabilities (when T > 1)
+# init ensample class posteriors
+ensclasspo <- matrix(, nrow = nrow(treemclasspo[1]$cpo), ncol = 2)
+ensclasspo[,1] = treemclasspo[1]$cpo[,1]
+ensclasspo[,2] = treemclasspo[1]$cpo[,2]
+if(count>=2){
+  for (t in 2:count){
+    ensclasspo[,1] = ensclasspo[,1]+treemclasspo[t]$cpo[,1]
+    ensclasspo[,2] = ensclasspo[,2]+treemclasspo[t]$cpo[,2]
+  }
+}
+# majority voting averaging
+ensclasspo[,1] = (1/count)*ensclasspo[,1]
+ensclasspo[,2] = (1/count)*ensclasspo[,2]
+#print(ensclasspo)
+
+
+# on testing
+classes = levels(oneshotdat$lesion_label)
+testproboneshot = data.frame(C1=ensclasspo[,1],
+                      C2=ensclasspo[,2],
+                      pred=classes[apply(ensclasspo, 1, which.max)], 
+                      obs=oneshotdat$lesion_label,
+                      ids=oneshotdat$lesion_id)
+colnames(testproboneshot)[1:2] <- classes
+pred=as.factor(apply(ensclasspo, 1, which.max))
+levels(pred) = levels(as.factor(unclass(oneshotdat$lesion_label)))
+
+groundT = as.factor(unclass(oneshotdat$lesion_label))
+levels(groundT) = levels(as.factor(unclass(oneshotdat$lesion_label)))
+
+perf_testoneshot = confusionMatrix(pred, groundT)
+print(perf_testoneshot)  
+
+```
+
+Plot and compare:
+====
+```{r fig.width=9, fig.height=8, warning=FALSE}
+# for resamROC
+library(pROC)
+testprob_stage2 = rbind(testprobmass, testprobnonmass)
+summary(testprob_stage2)
+#vs.
+summary(testproboneshot)
+
+##plot simple
+ROCF_cascade <- plot.roc(testprob_stage2$obs, testprob_stage2$C, col="#000086", lty=1, legacy.axes=TRUE,
+                      main="ROC for cascade vs one-shot generalization")
+par(new=TRUE)
+ROCF_oneshot <- plot.roc(testproboneshot$obs, testproboneshot$C, col="#860000", lty=2, legacy.axes=TRUE)
+
+legend("bottomright", legend = c(paste0("cascade AUC=", formatC(ROCF_cascade$auc, 
+    digits = 2, format = "f")), paste0("one-shot AUC=", formatC(ROCF_oneshot$auc, 
+    digits = 2, format = "f"))), col = c("#000086", "#860000"), lwd = 2, lty = c(1,2))
+
+
+##plot with CI
+ROCF_oneshot <- plot.roc(testproboneshot$obs, testproboneshot$C, col="#860000", lty=2, legacy.axes=TRUE,
+                      ci=TRUE, # compute AUC (of AUC by default)  
+                      print.auc=TRUE,
+                      print.auc.adj=c(-0.5,0)) # print the AUC (will contain the CI)  
+ciobj_oneshot <- ci.se(ROCF_oneshot, # CI of sensitivity  
+               specificities=seq(0, 1, 0.5)) # over a select set of specificities  
+plot(ciobj_oneshot, type="shape", col="#1c61b6AA") # plot as a blue shape  
+plot(ci(ROCF_oneshot, of="thresholds", thresholds="best")) # add one threshold
+par(new=TRUE)
+
+ROCF_cascade <- plot.roc(testprob_stage2$obs, testprob_stage2$C, col="#000086", lty=1, legacy.axes=TRUE,
+                      main="ROC for cascade vs one-shot generalization",
+                      ci=TRUE, # compute AUC (of AUC by default)  
+                      print.auc=TRUE,
+                      print.auc.adj=c(0,1)) # print the AUC (will contain the CI)  
+ciobj_cascade <- ci.se(ROCF_cascade, # CI of sensitivity  
+               specificities=seq(0, 1, 0.5)) # over a select set of specificities  
+plot(ciobj_cascade, type="shape", col="#1c61b6AA") # plot as a blue shape  
+plot(ci(ROCF_cascade, of="thresholds", thresholds="best")) # add one threshold
+
+print(ROCF_cascade$auc)
+print(ROCF_oneshot$auc)
+legend("bottomright", 
+       legend = c(paste0("cascade: AUC=", formatC(ROCF_cascade$auc,digits=2, format="f")), 
+                  paste0("oneshot: AUC=", formatC(ROCF_oneshot$auc,digits=2, format="f"))), 
+       col = c("#000086", "#860000"),lwd = 2, lty = c(1,2))
+#testobj <- roc.test(ROCF_oneshot, ROCF_cascade)  
+#print(testobj$p.value)
+#text(50, 50, labels=paste("p-value =", format.pval(testobj$p.value)), adj=c(0, .5))
+
+```
+
+Resampling-based p-values
+====
+```{r fig.width=9, fig.height=8, warning=FALSE}
+
+resample_basedpval <- function(clasf1, clasf2){
+  # using base
+  alldata = c(clasf1, clasf2)
+  labels = c(rep("clasf1", length(clasf1)), rep("clasf2", length(clasf2)))
+  obsdiff = median(alldata[labels=="clasf1"]) - median(alldata[labels=="clasf2"])
+  cat("Obser. diff = ", obsdiff,"\n")
+  
+  #The sample() function re-orders the labels, effectively implementing the supposition that the AUC is no different between cascade and one-shot.
+  resample_labels = sample(labels)
+  resample_diff = median(alldata[resample_labels=="clasf1"]) - 
+                  median(alldata[resample_labels=="clasf2"])
+  cat("resample diff = ", resample_diff,"\n")
+  
+  # In a teaching setting, the preceding code could be re-run several times, to mimic the presentation seen in the video linked above. To repeat many times, the most suitable base R tool is replicate(). To use it, we make a function of the resampling procedure shown above. 
+  resamp_means = function(data, labs){
+    resample_labels = sample(labs)
+    resample_diff = median(data[resample_labels=="clasf1"]) - 
+      median(data[resample_labels=="clasf2"])
+    return(resample_diff)
+  }
+  
+  nulldist = replicate(9999,resamp_means(alldata,labels))
+  hist(nulldist, col="#860000")
+  abline(v = obsdiff, col = "blue", lwd=2)
+  
+  #The histogram is shown above. The p-value is obtained by counting the proportion of statistics (including the actual observed difference) among greater than or equal to the observed statistic:
+  alldiffs = c(obsdiff,nulldist)
+  pvalue = sum(abs(alldiffs >= obsdiff)/ 10000)
+  cat("pvalue diff = ", pvalue,"\n")
+  
+}
+
+# for resamROC
+cascadeAUC={}
+oneshotAUC={}
+for(i in 1:50){
+  ##plot
+  # resample
+  res_oneshot = testproboneshot[sample(1:nrow(testproboneshot), 100),]
+  res_cascade = testprob_stage2[sample(1:nrow(testprob_stage2), 100),]
+  #calculate
+  ROCF_oneshot <- roc(res_oneshot$obs, res_oneshot$C) 
+  ROCF_cascade <- roc(res_cascade$obs, res_cascade$C) 
+  #append
+  oneshotAUC=append(oneshotAUC, ROCF_oneshot$auc)
+  cascadeAUC=append(cascadeAUC, ROCF_cascade$auc)
+}
+summary(oneshotAUC)
+summary(cascadeAUC)
+
+# using resample_basedpval
+resample_basedpval(cascadeAUC, oneshotAUC)
+
+summary(meanAUConeshot)
+summary(meanAUCmass)
+summary(meanAUCnonmass)
+
+resample_basedpval(meanAUCmass, meanAUConeshot)
+resample_basedpval(meanAUCnonmass, meanAUConeshot)
+
+```
+
+
+
+Process misclassifications
+======
+```{r fig.width=9, fig.height=8, warning=FALSE}
+library(reshape)
+misclass_stage1 = subset(testprob, pred != obs)
+misclass_mass = subset(testprobmass,pred != obs)
+misclass_nonmass = subset(testprobnonmass,pred != obs)
+
+misclass_stage2 = rbind(misclass_mass, misclass_nonmass)
+misclass_oneshot = subset(testproboneshot,pred != obs)
+allmissed = rbind(misclass_stage2, misclass_oneshot)
+
+# missed by both
+missall = allmissed$ids[duplicated(allmissed$ids)]
+print(length(missall))
+diagnosis = {}
+labels = {}
+# query lesion info by lesion_id
+for( i in 1:length(missall)){
+  caseith = read_data("multi", missall[i])
+  infocase = caseith$info
+  diagnosis = append(diagnosis, infocase$lesion_diagnosis)
+  labels = append(labels, infocase$lesion_label)
+}
+
+summary(as.factor(labels))
+summary(as.factor(diagnosis))
+
+# Find missing by oneshot not by cascade and viceversa
+bothmissed = merge(misclass_stage2, misclass_oneshot, by="ids")
+
+# since allmissed = rbind(misclass_stage2, misclass_oneshot)
+misclass_stage2 = rbind(misclass_mass, misclass_nonmass)
+misclass_oneshot = subset(testproboneshot,pred != obs)
+misclass_oneshot$missedby <- "oneshot"
+misclass_stage2$missedby <- "cascade"
+allmissed = rbind(misclass_stage2, misclass_oneshot)
+
+onlymissed = allmissed[ ! allmissed$ids %in% bothmissed$ids, ]
+missonlyoneshot = subset(onlymissed, missedby=="oneshot")
+print(nrow(missonlyoneshot))
+missonlycascade = subset(onlymissed, missedby=="cascade")
+print(nrow(missonlycascade))
+
+# misclassification by stages
+print(nrow(misclass_stage2))
+missed2ndand1st = misclass_stage1[ ! misclass_stage1$ids %in% misclass_stage2$ids, ]
+print(nrow(missed2ndand1st))
+print(missed2ndand1st)
+
+missed1stnot2 = misclass_stage1[ ! misclass_stage1$ids %in% missed2ndand1st$ids, ]
+print(nrow(missed1stnot2))
+print(missed1stnot2)
+
+```
+
